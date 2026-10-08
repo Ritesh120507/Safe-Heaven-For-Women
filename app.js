@@ -83,7 +83,7 @@ function updateUserUI(user) {
       </div>`;
       
     document.getElementById("profile-pill").addEventListener("click", () => {
-      toast(`🛡️ Trust Score: ${state.user.trust} | ${user.displayName}`);
+      toast(`Trust Score: ${state.user.trust} | ${user.displayName}`);
     });
 
     markSafeBtn.disabled = false;
