@@ -299,8 +299,8 @@ function setProximityBanner(status) {
     if ("Notification" in window && Notification.permission === "granted") { new Notification("Safe Heaven", { body: text.textContent }); }
   } else if (status === "safe" && banner.className.indexOf("hidden") !== -1) {
     banner.className = "proximity-banner state-safe";
-    icon.textContent = "✅";
-    text.textContent = "You are in a verified safe zone."; 
+    icon.textContent = "";
+    text.textContent = "You are in a verified safe zone"; 
     if ("Notification" in window && Notification.permission === "granted") { new Notification("Safe Heaven", { body: text.textContent }); }
   } else if (!status) {
     banner.className = "proximity-banner hidden";
@@ -486,7 +486,7 @@ function openZoneModal(id) {
   };
   
   if (r.type === "danger") {
-    prog.textContent = "Immediate danger alert active.";
+    prog.textContent = "Immediate danger alert active";
     btn.style.display = "none";
     
     timerEl.style.display = "block";
@@ -495,7 +495,7 @@ function openZoneModal(id) {
     
   } else {
     if (confs.length >= 3) {
-      prog.textContent = "Fully Verified Safe Zone.";
+      prog.textContent = "Fully Verified Safe Zone";
       btn.style.display = "none";
       
       timerEl.style.display = "block";
