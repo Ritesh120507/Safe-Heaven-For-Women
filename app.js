@@ -27,7 +27,7 @@ const state = {
   reports: [], 
   pendingLatLng: null, 
   pendingType: null,
-  userLocation: null // { lat, lng }
+  userLocation: null 
 };
 
 // UI Helpers
@@ -52,13 +52,12 @@ function closeModal(id) {
 
 document.querySelectorAll("[data-close]").forEach(el => el.addEventListener("click", () => closeModal(el.dataset.close)));
 
-// Navigation Mobile Toggle
 document.getElementById("nav-mobile-toggle").addEventListener("click", () => {
   document.getElementById("nav-links").classList.toggle("mobile-open");
 });
 document.querySelectorAll(".nav-link").forEach(l => l.addEventListener("click", () => document.getElementById("nav-links").classList.remove("mobile-open")));
 
-// Update UI based on Auth State
+// Update UI based on Auth State & Trust Score
 function updateUserUI(user) {
   const authBtns = document.getElementById("auth-buttons");
   const profileCard = document.getElementById("auth-profile-card");
@@ -69,7 +68,11 @@ function updateUserUI(user) {
   if (user) {
     authBtns.style.display = "none";
     profileCard.style.display = "block";
-    document.getElementById("user-display-name").textContent = user.displayName || "User";
+    
+    // Inject the new Golden Star Badge if Trust Score is 75 or higher
+    let badgeHtml = state.user.trust >= 75 ? `<img src="medal.png" class="trust-badge" title="Trust Guardian" alt="Guardian Badge">` : '';
+    
+    document.getElementById("user-display-name").innerHTML = `${user.displayName || "User"} ${badgeHtml}`;
     document.getElementById("user-email-phone").textContent = user.email || "Verified User";
     
     if (user.photoURL) {
@@ -79,11 +82,11 @@ function updateUserUI(user) {
     navSlot.innerHTML = `
       <div class="nav-user-pill" id="profile-pill" style="cursor:pointer;" title="Click to view Trust Score">
         <span style="font-weight:700; color:var(--theme-glow);">${(user.displayName||"U").charAt(0)}</span>
-        <span style="color:var(--text-hi);">${user.displayName||"User"}</span>
+        <span style="color:var(--text-hi); display:flex; align-items:center;">${user.displayName||"User"} ${badgeHtml}</span>
       </div>`;
       
     document.getElementById("profile-pill").addEventListener("click", () => {
-      toast(`Trust Score: ${state.user.trust} | ${user.displayName}`);
+      toast(`Trust Score: ${state.user.trust}/100 | ${user.displayName}`);
     });
 
     markSafeBtn.disabled = false;
@@ -99,18 +102,18 @@ function updateUserUI(user) {
   }
 }
 
-// Fetch user data & trust score
+// Fetch user data & initialize trust score to 25
 async function syncUser(firebaseUser) {
   if (!fbReady) return;
   const ref = db.collection("users").doc(firebaseUser.uid);
-  let trustScore = 15; 
+  let trustScore = 25; 
   
   try {
     const doc = await ref.get();
     if (doc.exists) {
-      trustScore = doc.data().trust ?? 15;
+      trustScore = doc.data().trust ?? 25;
     } else {
-      await ref.set({ trust: 15, displayName: firebaseUser.displayName }, { merge: true });
+      await ref.set({ trust: 25, displayName: firebaseUser.displayName }, { merge: true });
     }
   } catch (error) {
     console.warn("User sync note:", error.message);
@@ -144,16 +147,13 @@ document.getElementById("hero-logout-btn").addEventListener("click", () => {
 
 if (fbReady) {
   auth.onAuthStateChanged(async (user) => {
-    if (user) {
-      await syncUser(user);
-    }
+    if (user) await syncUser(user);
   });
 }
 
-// Leaflet Map Init (FIXED ZOOM ISSUE)
+// Leaflet Map Init
 const map = L.map("map", { maxZoom: 22 }).setView([20.5937, 78.9629], 5);
 
-// Adding maxNativeZoom stretches the level 19 tiles when zooming further, preventing the black screen
 L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { 
   maxZoom: 22,
   maxNativeZoom: 19,
@@ -177,7 +177,7 @@ map.on("click", (e) => {
 let userMarker = null;
 let userRadiusCircle = null;
 let hasCenteredUser = false;
-const PROXIMITY_RADIUS_METERS = 400; // Geofence distance threshold (approx. walking zone)
+const PROXIMITY_RADIUS_METERS = 400; 
 
 function setupGPS() {
   const badge = document.getElementById("gps-status-badge");
@@ -195,7 +195,6 @@ function setupGPS() {
 
       if (badge) badge.textContent = `GPS Active (±${Math.round(pos.coords.accuracy)}m)`;
 
-      // Update or create live position marker on map
       const userLatLng = [lat, lng];
       if (!userMarker) {
         const userIcon = L.divIcon({
@@ -220,13 +219,11 @@ function setupGPS() {
         userRadiusCircle.setRadius(pos.coords.accuracy || 30);
       }
 
-      // Fly to user on first successful position fetch
       if (!hasCenteredUser) {
         map.flyTo(userLatLng, 15, { duration: 1.5 });
         hasCenteredUser = true;
       }
 
-      // Run proximity evaluation
       checkProximityAlerts();
     },
     (err) => {
@@ -237,7 +234,6 @@ function setupGPS() {
   );
 }
 
-// Recenter button
 document.getElementById("recenter-gps-btn").addEventListener("click", () => {
   if (state.userLocation) {
     map.flyTo([state.userLocation.lat, state.userLocation.lng], 16, { duration: 1.2 });
@@ -247,7 +243,6 @@ document.getElementById("recenter-gps-btn").addEventListener("click", () => {
   }
 });
 
-// Check if user is near danger or safe zone
 function checkProximityAlerts() {
   if (!state.userLocation || !state.reports || state.reports.length === 0) {
     setProximityBanner(null);
@@ -257,7 +252,6 @@ function checkProximityAlerts() {
   const now = Date.now();
   const userLL = L.latLng(state.userLocation.lat, state.userLocation.lng);
 
-  // Filter only active reports (not expired)
   const activeReports = state.reports.filter(r => {
     let exp = r.expiresAt;
     if (exp && typeof exp.toMillis === "function") exp = exp.toMillis();
@@ -276,7 +270,7 @@ function checkProximityAlerts() {
     if (distanceMeters <= PROXIMITY_RADIUS_METERS) {
       if (r.type === "danger") {
         inDanger = true;
-        break; // Danger takes top priority!
+        break; 
       } else if (r.type === "safe" && (r.confirmations || []).length >= 3) {
         inSafe = true;
       }
@@ -298,15 +292,17 @@ function setProximityBanner(status) {
   const text = document.getElementById("proximity-text");
   if (!banner) return;
 
-  if (status === "danger") {
+  if (status === "danger" && banner.className.indexOf("hidden") !== -1) {
     banner.className = "proximity-banner state-danger";
-    icon.textContent = "";
-    text.textContent = "Alert"; 
-  } else if (status === "safe") {
+    icon.textContent = "⚠️";
+    text.textContent = "Red Alert: Danger Zone Nearby!"; 
+    if ("Notification" in window && Notification.permission === "granted") { new Notification("Safe Heaven", { body: text.textContent }); }
+  } else if (status === "safe" && banner.className.indexOf("hidden") !== -1) {
     banner.className = "proximity-banner state-safe";
-    icon.textContent = "";
-    text.textContent = "You are safe"; 
-  } else {
+    icon.textContent = "✅";
+    text.textContent = "You are in a verified safe zone."; 
+    if ("Notification" in window && Notification.permission === "granted") { new Notification("Safe Heaven", { body: text.textContent }); }
+  } else if (!status) {
     banner.className = "proximity-banner hidden";
   }
 }
@@ -314,8 +310,23 @@ function setProximityBanner(status) {
 setupGPS();
 
 /* ============================================================
-   ██  REPORTING & VERIFICATION LOGIC
+   ██  TRUST ECONOMY & VERIFICATION LOGIC
    ============================================================ */
+async function updateUserTrustScore(userId, pointChange) {
+  if (!userId) return;
+  const userRef = db.collection('users').doc(userId);
+  try {
+    await db.runTransaction(async (transaction) => {
+      const doc = await transaction.get(userRef);
+      if (doc.exists) {
+        let currentScore = doc.data().trust || 25;
+        let newScore = Math.max(0, Math.min(currentScore + pointChange, 100));
+        transaction.update(userRef, { trust: newScore });
+      }
+    });
+  } catch (error) { console.error("Trust update failed:", error); }
+}
+
 document.getElementById("mark-safe-btn").addEventListener("click", () => promptReport("safe"));
 document.getElementById("report-danger-btn").addEventListener("click", () => promptReport("danger"));
 
@@ -326,7 +337,6 @@ function promptReport(type) {
   openModal("report-modal-overlay");
 }
 
-// Submitting a Report
 document.getElementById("report-confirm-btn").addEventListener("click", async () => {
   if (!fbReady || !state.user) return toast("Sign in first");
   const type = state.pendingType;
@@ -354,7 +364,6 @@ document.getElementById("report-confirm-btn").addEventListener("click", async ()
   }
 });
 
-// Confirming a Safe Zone
 async function confirmSafeZone(reportId) {
   if (!state.user) return toast("Sign in to confirm");
   const ref = db.collection("reports").doc(reportId);
@@ -372,6 +381,7 @@ async function confirmSafeZone(reportId) {
       
       if (newConfs.length === 3) {
          updatePayload.expiresAt = Date.now() + 30 * 60000;
+         updateUserTrustScore(data.reportedBy, 5); // Reward the original creator
       }
       
       transaction.update(ref, updatePayload);
@@ -510,11 +520,28 @@ function openZoneModal(id) {
   openModal("zone-modal-overlay");
 }
 
+/* ============================================================
+   ██  AUTO-EXPIRY CLEANUP (FIREBASE)
+   ============================================================ */
+async function cleanupExpiredZones() {
+  const now = Date.now();
+  const expiredQuery = db.collection('reports').where('expiresAt', '<', now);
+  try {
+    const snapshot = await expiredQuery.get();
+    if (!snapshot.empty) {
+      const batch = db.batch();
+      snapshot.forEach((doc) => batch.delete(doc.ref));
+      await batch.commit();
+    }
+  } catch (error) { console.error("Cleanup failed:", error); }
+}
+
 setInterval(() => {
   if (state.reports && state.reports.length > 0) {
     renderReports();
   }
-}, 5000);
+  if (fbReady) cleanupExpiredZones();
+}, 15000);
 
 if (fbReady) {
   db.collection("reports").orderBy("timestamp", "desc").limit(100).onSnapshot(
