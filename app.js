@@ -296,6 +296,7 @@ if (fbReady) {
   });
 }
 
+// Initialize Leaflet Map
 const map = L.map("map", { maxZoom: 22 }).setView([20.5937, 78.9629], 5);
 
 L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { 
@@ -320,6 +321,7 @@ let userRadiusCircle = null;
 let hasCenteredUser = false;
 const PROXIMITY_RADIUS_METERS = 400; 
 
+// Enhanced & Reliable GPS Setup
 function setupGPS() {
   const badge = document.getElementById("gps-status-badge");
   
