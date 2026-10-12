@@ -322,56 +322,80 @@ const PROXIMITY_RADIUS_METERS = 400;
 
 function setupGPS() {
   const badge = document.getElementById("gps-status-badge");
+  
   if (!("geolocation" in navigator)) {
     if (badge) badge.textContent = "GPS not supported";
+    toast("Geolocation is not supported by your browser");
     return;
   }
 
-  navigator.geolocation.watchPosition(
-    (pos) => {
-      const lat = pos.coords.latitude;
-      const lng = pos.coords.longitude;
-      state.userLocation = { lat, lng };
+  if (badge) badge.textContent = "📡 Acquiring GPS fix...";
 
-      if (badge) badge.textContent = `GPS Active (±${Math.round(pos.coords.accuracy)}m)`;
+  const geoOptions = {
+    enableHighAccuracy: true,
+    timeout: 10000,
+    maximumAge: 5000
+  };
 
-      const userLatLng = [lat, lng];
-      if (!userMarker) {
-        const userIcon = L.divIcon({
-          className: "",
-          html: '<div class="gps-user-marker"></div>',
-          iconSize: [22, 22],
-          iconAnchor: [11, 11]
-        });
-        userMarker = L.marker(userLatLng, { icon: userIcon, zIndexOffset: 1000 }).addTo(map);
-        userMarker.bindTooltip("You are here", { direction: "top", offset: [0, -10] });
-        
-        userRadiusCircle = L.circle(userLatLng, {
-          radius: pos.coords.accuracy || 30,
-          color: "#38bdf8",
-          fillColor: "#38bdf8",
-          fillOpacity: 0.12,
-          weight: 1
-        }).addTo(map);
-      } else {
-        userMarker.setLatLng(userLatLng);
-        userRadiusCircle.setLatLng(userLatLng);
-        userRadiusCircle.setRadius(pos.coords.accuracy || 30);
-      }
+  function successHandler(pos) {
+    const lat = pos.coords.latitude;
+    const lng = pos.coords.longitude;
+    state.userLocation = { lat, lng };
 
-      if (!hasCenteredUser) {
-        map.flyTo(userLatLng, 15, { duration: 1.5 });
-        hasCenteredUser = true;
-      }
+    if (badge) badge.textContent = `GPS Active (±${Math.round(pos.coords.accuracy)}m)`;
 
-      checkProximityAlerts();
-    },
-    (err) => {
-      console.warn("GPS error:", err.message);
-      if (badge) badge.textContent = "GPS Permission Required";
-    },
-    { enableHighAccuracy: true, timeout: 15000, maximumAge: 5000 }
-  );
+    const userLatLng = [lat, lng];
+    if (!userMarker) {
+      const userIcon = L.divIcon({
+        className: "",
+        html: '<div class="gps-user-marker"></div>',
+        iconSize: [22, 22],
+        iconAnchor: [11, 11]
+      });
+      userMarker = L.marker(userLatLng, { icon: userIcon, zIndexOffset: 1000 }).addTo(map);
+      userMarker.bindTooltip("You are here", { direction: "top", offset: [0, -10] });
+      
+      userRadiusCircle = L.circle(userLatLng, {
+        radius: pos.coords.accuracy || 30,
+        color: "#38bdf8",
+        fillColor: "#38bdf8",
+        fillOpacity: 0.12,
+        weight: 1
+      }).addTo(map);
+    } else {
+      userMarker.setLatLng(userLatLng);
+      userRadiusCircle.setLatLng(userLatLng);
+      userRadiusCircle.setRadius(pos.coords.accuracy || 30);
+    }
+
+    if (!hasCenteredUser) {
+      map.flyTo(userLatLng, 15, { duration: 1.5 });
+      hasCenteredUser = true;
+    }
+
+    checkProximityAlerts();
+  }
+
+  function errorHandler(err) {
+    console.warn("GPS error code " + err.code + ": " + err.message);
+    
+    if (err.code === err.TIMEOUT || err.code === err.POSITION_UNAVAILABLE) {
+      if (badge) badge.textContent = "Retrying with standard GPS...";
+      navigator.geolocation.getCurrentPosition(
+        successHandler, 
+        (fallbackErr) => {
+          if (badge) badge.textContent = "GPS Permission / Signal Required";
+          toast("Unable to retrieve location. Please check browser permissions.");
+        },
+        { enableHighAccuracy: false, timeout: 10000, maximumAge: 10000 }
+      );
+    } else {
+      if (badge) badge.textContent = "GPS Permission Denied";
+      toast("Location access denied. Please enable location permissions in your browser.");
+    }
+  }
+
+  navigator.geolocation.watchPosition(successHandler, errorHandler, geoOptions);
 }
 
 document.getElementById("recenter-gps-btn").addEventListener("click", () => {
