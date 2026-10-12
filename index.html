@@ -66,7 +66,18 @@
             <div id="user-email-phone" style="font-size:0.8rem; color:var(--text-hi);"></div>
           </div>
         </div>
-        <div class="btn-row">
+
+        <div style="background:rgba(5,20,12,0.7); border:1px solid rgba(102,255,153,0.3); border-radius:12px; padding:0.85rem; margin-top:0.85rem;">
+          <div style="font-size:0.75rem; font-weight:700; color:var(--theme-glow); text-transform:uppercase; margin-bottom:0.4rem;">My Contribution Stats</div>
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.5rem; font-size:0.82rem; color:var(--text-hi);">
+            <div>Safe Zones: <span id="my-stat-safe" style="color:var(--safe); font-weight:700;">0</span></div>
+            <div>Danger Zones: <span id="my-stat-danger" style="color:var(--danger); font-weight:700;">0</span></div>
+            <div>Total Zones: <span id="my-stat-total" style="font-weight:700;">0</span></div>
+            <div>People Thanked: <span id="my-stat-helped" style="color:var(--theme-glow); font-weight:700;">0</span></div>
+          </div>
+        </div>
+
+        <div class="btn-row" style="margin-top:0.75rem;">
           <a href="#mapsec" class="btn btn-primary" style="flex:1;">Open Live Map ↓</a>
           <button class="btn btn-ghost" id="hero-logout-btn">Sign out</button>
         </div>
@@ -127,9 +138,9 @@
         <div style="background:rgba(255,77,77,0.06); border:1px solid rgba(255,77,77,0.3); border-radius:1rem; padding:1.25rem;">
           <h4 style="color:#ff4d4d; margin-top:0; margin-bottom:0.5rem;">Actions That DECREASE Trust Score & Ban</h4>
           <ul style="margin:0; padding-left:1.2rem; font-size:0.92rem; color:var(--text-hi); line-height:1.6;">
+            <li><b>Trust Score Reaches 0 (Permanent Ban):</b> If your trust score drops to 0 due to penalties or spam, your account is permanently banned from the platform.</li>
             <li><b>Report Spam (-10 pts & 30-min Ban):</b> Creating more than 3 safe reports within 30 minutes triggers an automatic penalty.</li>
-            <li><b>Malicious False Reporting:</b> Submitting fake hazard pins results in heavy trust deductions and possible restriction.</li>
-            <li><b>Spamming Confirmations:</b> Trying to confirm from restricted or duplicate locations.</li>
+            <li><b>Malicious False Reporting:</b> Submitting fake hazard pins results in heavy trust deductions.</li>
           </ul>
         </div>
       </div>
@@ -232,6 +243,15 @@
 </div>
 
 <div id="toast-wrap"></div>
+
+<!-- Permanent Ban Modal Overlay -->
+<div class="modal-overlay" id="perm-ban-modal-overlay">
+  <div class="modal" style="border-color:#ff4d4d; text-align:center; background:rgba(30,5,5,0.95);">
+    <h3 style="color:#ff4d4d; margin-top:0; font-size:2rem;">🚫 Account Permanently Banned</h3>
+    <p style="color:var(--text-hi); font-size:1.05rem; margin:1rem 0;">Your trust score has dropped to 0 due to repeated violations or community infractions. You have been permanently restricted from accessing Safe Heaven.</p>
+    <button class="btn btn-danger" style="width:100%; margin-top:1rem;" onclick="auth.signOut().then(() => window.location.reload())">Sign Out</button>
+  </div>
+</div>
 
 <div class="modal-overlay" id="report-modal-overlay">
   <div class="modal">
