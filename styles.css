@@ -67,7 +67,7 @@ body {
 .nav-link { color: var(--text-lo); text-decoration: none; font-size: 0.95rem; font-weight: 600; padding: 0.4rem 0.6rem; border-radius: 0.6rem; transition: all 0.2s ease; }
 .nav-link:hover { color: var(--theme-glow); background: rgba(102, 255, 153, 0.1); text-shadow: 0 0 8px var(--theme-glow); }
 .nav-user-pill { display: flex; align-items: center; gap: 0.6rem; background: rgba(102, 255, 153, 0.1); border: 1px solid var(--glass-border); padding: 0.35rem 0.85rem; border-radius: 999px; font-size: 0.82rem; }
-.user-avatar-img { width: 28px; height: 28px; border-radius: 50%; object-fit: cover; border: 1.5px solid var(--theme-glow); }
+.user-avatar-img { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; border: 1.5px solid var(--theme-glow); }
 .nav-mobile-toggle { display: none; background: none; border: none; cursor: pointer; padding: 0.5rem; color: var(--theme-glow); font-size: 1.6rem; }
 
 #scroll-spacer { position: relative; z-index: 1; padding-top: var(--nav-height); padding-bottom: var(--safe-area-bottom); }
