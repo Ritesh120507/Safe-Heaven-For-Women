@@ -1,13 +1,13 @@
 window.addEventListener("load", () => {
 
-// Firebase Config
+// Firebase Config loaded securely from Environment variables or fallback config
 const firebaseConfig = {
-  apiKey: "AIzaSyDzSJPwBC1szW6yLs6wwWgj_RNPjW64ZI0",
-  authDomain: "shesafe-d72a3.firebaseapp.com",
-  projectId: "shesafe-d72a3",
-  storageBucket: "shesafe-d72a3.firebasestorage.app",
-  messagingSenderId: "11541245556",
-  appId: "1:11541245556:web:bfff4cd49c7b15367fab21"
+  apiKey: typeof process !== 'undefined' && process.env?.FIREBASE_API_KEY ? process.env.FIREBASE_API_KEY : "AIzaSyDzSJPwBC1szW6yLs6wwWgj_RNPjW64ZI0",
+  authDomain: typeof process !== 'undefined' && process.env?.FIREBASE_AUTH_DOMAIN ? process.env.FIREBASE_AUTH_DOMAIN : "shesafe-d72a3.firebaseapp.com",
+  projectId: typeof process !== 'undefined' && process.env?.FIREBASE_PROJECT_ID ? process.env.PROJECT_ID : "shesafe-d72a3",
+  storageBucket: typeof process !== 'undefined' && process.env?.FIREBASE_STORAGE_BUCKET ? process.env.FIREBASE_STORAGE_BUCKET : "shesafe-d72a3.firebasestorage.app",
+  messagingSenderId: typeof process !== 'undefined' && process.env?.FIREBASE_MESSAGING_SENDER_ID ? process.env.FIREBASE_MESSAGING_SENDER_ID : "11541245556",
+  appId: typeof process !== 'undefined' && process.env?.FIREBASE_APP_ID ? process.env.FIREBASE_APP_ID : "1:11541245556:web:bfff4cd49c7b15367fab21"
 };
 
 let fbApp, auth, db, fbReady = false;
@@ -140,9 +140,8 @@ function updateUserUI(user) {
     document.getElementById("user-display-name").innerHTML = `${user.displayName || "User"} ${badgeHtml}`;
     document.getElementById("user-email-phone").textContent = `${user.email || "Verified User"} · ${roleInfo.name}`;
     
-    if (user.photoURL) {
-      document.getElementById("user-avatar-container").innerHTML = `<img src="${user.photoURL}" class="user-avatar-img">`;
-    }
+    const avatarUrl = state.user.photoURL || user.photoURL || "https://via.placeholder.com/150";
+    document.getElementById("user-avatar-container").innerHTML = `<img src="${avatarUrl}" class="user-avatar-img">`;
     
     navSlot.innerHTML = `
       <div class="nav-user-pill" id="profile-pill" style="cursor:pointer;" title="Click to view Trust Score">
@@ -173,6 +172,28 @@ function updateUserUI(user) {
     }
   }
 }
+
+// Profile Picture Modal Handlers
+document.getElementById("change-photo-btn").addEventListener("click", () => {
+  document.getElementById("photo-url-input").value = state.user?.photoURL || "";
+  openModal("photo-modal-overlay");
+});
+
+document.getElementById("save-photo-btn").addEventListener("click", async () => {
+  const newUrl = document.getElementById("photo-url-input").value.trim();
+  if (!newUrl) return toast("Please enter a valid image URL");
+  if (!state.user || !fbReady) return toast("Sign in first");
+
+  try {
+    await db.collection("users").doc(state.user.uid).update({ photoURL: newUrl });
+    state.user.photoURL = newUrl;
+    updateUserUI(state.user);
+    closeModal("photo-modal-overlay");
+    toast("Profile picture updated successfully!");
+  } catch (err) {
+    toast("Error updating profile picture: " + err.message);
+  }
+});
 
 function renderNotificationsSection() {
   const container = document.getElementById("dedicated-notifications-list");
@@ -224,6 +245,7 @@ async function syncUser(firebaseUser) {
   let trustScore = 25; 
   let bannedUntilVal = 0;
   let notificationsVal = [];
+  let customPhotoURL = firebaseUser.photoURL;
   
   try {
     const doc = await ref.get();
@@ -231,8 +253,9 @@ async function syncUser(firebaseUser) {
       trustScore = doc.data().trust ?? 25;
       bannedUntilVal = doc.data().bannedUntil ?? 0;
       notificationsVal = doc.data().notifications ?? [];
+      if (doc.data().photoURL) customPhotoURL = doc.data().photoURL;
     } else {
-      await ref.set({ trust: 25, displayName: firebaseUser.displayName, bannedUntil: 0, notifications: [] }, { merge: true });
+      await ref.set({ trust: 25, displayName: firebaseUser.displayName, photoURL: firebaseUser.photoURL || "", bannedUntil: 0, notifications: [] }, { merge: true });
     }
   } catch (error) {
     console.warn("User sync note:", error.message);
@@ -242,7 +265,7 @@ async function syncUser(firebaseUser) {
     uid: firebaseUser.uid, 
     displayName: firebaseUser.displayName, 
     email: firebaseUser.email, 
-    photoURL: firebaseUser.photoURL,
+    photoURL: customPhotoURL,
     trust: trustScore,
     bannedUntil: bannedUntilVal,
     notifications: notificationsVal
