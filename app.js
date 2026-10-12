@@ -131,6 +131,15 @@ function updateUserUI(user) {
   const navSlot = document.getElementById("nav-user-slot");
 
   if (user) {
+    if (state.user && state.user.trust === 0) {
+      openModal("perm-ban-modal-overlay");
+      authBtns.style.display = "none";
+      profileCard.style.display = "none";
+      markSafeBtn.disabled = true;
+      reportDangerBtn.disabled = true;
+      return;
+    }
+
     authBtns.style.display = "none";
     profileCard.style.display = "block";
     
@@ -140,8 +149,9 @@ function updateUserUI(user) {
     document.getElementById("user-display-name").innerHTML = `${user.displayName || "User"} ${badgeHtml}`;
     document.getElementById("user-email-phone").textContent = `${user.email || "Verified User"} · ${roleInfo.name}`;
     
-    const avatarUrl = state.user.photoURL || user.photoURL || "https://via.placeholder.com/150";
-    document.getElementById("user-avatar-container").innerHTML = `<img src="${avatarUrl}" class="user-avatar-img">`;
+    if (user.photoURL) {
+      document.getElementById("user-avatar-container").innerHTML = `<img src="${user.photoURL}" class="user-avatar-img">`;
+    }
     
     navSlot.innerHTML = `
       <div class="nav-user-pill" id="profile-pill" style="cursor:pointer;" title="Click to view Trust Score">
@@ -154,6 +164,7 @@ function updateUserUI(user) {
     });
 
     renderNotificationsSection();
+    updateMyProfileStats();
 
     markSafeBtn.disabled = false;
     reportDangerBtn.disabled = false;
@@ -173,32 +184,33 @@ function updateUserUI(user) {
   }
 }
 
-// Profile Picture Modal Handlers
-const changePhotoBtn = document.getElementById("change-photo-btn");
-if (changePhotoBtn) {
-  changePhotoBtn.addEventListener("click", () => {
-    document.getElementById("photo-url-input").value = state.user?.photoURL || "";
-    openModal("photo-modal-overlay");
-  });
-}
+// Calculate and render current user's own profile stats
+function updateMyProfileStats() {
+  if (!state.user || !state.reports) return;
+  
+  let safeCount = 0;
+  let dangerCount = 0;
+  let totalHelped = 0;
 
-const savePhotoBtn = document.getElementById("save-photo-btn");
-if (savePhotoBtn) {
-  savePhotoBtn.addEventListener("click", async () => {
-    const newUrl = document.getElementById("photo-url-input").value.trim();
-    if (!newUrl) return toast("Please enter a valid image URL");
-    if (!state.user || !fbReady) return toast("Sign in first");
-
-    try {
-      await db.collection("users").doc(state.user.uid).update({ photoURL: newUrl });
-      state.user.photoURL = newUrl;
-      updateUserUI(state.user);
-      closeModal("photo-modal-overlay");
-      toast("Profile picture updated successfully!");
-    } catch (err) {
-      toast("Error updating profile picture: " + err.message);
+  state.reports.forEach(r => {
+    if (r.reportedBy === state.user.uid) {
+      if (r.type === "safe") safeCount++;
+      else if (r.type === "danger") dangerCount++;
+      if (r.thankedBy && Array.isArray(r.thankedBy)) {
+        totalHelped += r.thankedBy.length;
+      }
     }
   });
+
+  const safeEl = document.getElementById("my-stat-safe");
+  const dangerEl = document.getElementById("my-stat-danger");
+  const totalEl = document.getElementById("my-stat-total");
+  const helpedEl = document.getElementById("my-stat-helped");
+
+  if (safeEl) safeEl.textContent = safeCount;
+  if (dangerEl) dangerEl.textContent = dangerCount;
+  if (totalEl) totalEl.textContent = safeCount + dangerCount;
+  if (helpedEl) helpedEl.textContent = totalHelped;
 }
 
 function renderNotificationsSection() {
@@ -251,7 +263,6 @@ async function syncUser(firebaseUser) {
   let trustScore = 25; 
   let bannedUntilVal = 0;
   let notificationsVal = [];
-  let customPhotoURL = firebaseUser.photoURL;
   
   try {
     const doc = await ref.get();
@@ -259,9 +270,8 @@ async function syncUser(firebaseUser) {
       trustScore = doc.data().trust ?? 25;
       bannedUntilVal = doc.data().bannedUntil ?? 0;
       notificationsVal = doc.data().notifications ?? [];
-      if (doc.data().photoURL) customPhotoURL = doc.data().photoURL;
     } else {
-      await ref.set({ trust: 25, displayName: firebaseUser.displayName, photoURL: firebaseUser.photoURL || "", bannedUntil: 0, notifications: [] }, { merge: true });
+      await ref.set({ trust: 25, displayName: firebaseUser.displayName, bannedUntil: 0, notifications: [] }, { merge: true });
     }
   } catch (error) {
     console.warn("User sync note:", error.message);
@@ -271,11 +281,16 @@ async function syncUser(firebaseUser) {
     uid: firebaseUser.uid, 
     displayName: firebaseUser.displayName, 
     email: firebaseUser.email, 
-    photoURL: customPhotoURL,
+    photoURL: firebaseUser.photoURL,
     trust: trustScore,
     bannedUntil: bannedUntilVal,
     notifications: notificationsVal
   };
+
+  if (trustScore === 0) {
+    openModal("perm-ban-modal-overlay");
+    return;
+  }
   
   checkRolePromotion(state.user, trustScore);
   updateUserUI(state.user);
@@ -314,7 +329,6 @@ L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
 const markerLayer = L.layerGroup().addTo(map);
 window.safeHeavenMap = map;
 
-// Force map to recalculate container size correctly once rendered
 setTimeout(() => {
   if (window.safeHeavenMap) {
     window.safeHeavenMap.invalidateSize();
@@ -492,6 +506,10 @@ async function updateUserTrustScore(userId, pointChange) {
         transaction.update(userRef, { trust: newScore });
         if (state.user && state.user.uid === userId) {
           state.user.trust = newScore;
+          if (newScore === 0) {
+            openModal("perm-ban-modal-overlay");
+            await addUserNotification(userId, "🚫 Your account has been permanently banned because your trust score reached 0.");
+          }
           checkRolePromotion(state.user, newScore);
           updateUserUI(state.user);
         }
@@ -549,6 +567,9 @@ document.getElementById("report-confirm-btn").addEventListener("click", async ()
           t.update(userRef, { trust: penalizedTrust, bannedUntil: banUntil });
           state.user.trust = penalizedTrust;
           state.user.bannedUntil = banUntil;
+          if (penalizedTrust === 0) {
+            openModal("perm-ban-modal-overlay");
+          }
         });
         await addUserNotification(state.user.uid, "⚠️ Warning: Account temporarily banned for 30 mins due to report spam (-10 trust penalty).");
       } catch (err) { console.error("Spam penalty error:", err); }
@@ -594,6 +615,7 @@ document.getElementById("report-confirm-btn").addEventListener("click", async ()
     state.pendingLatLng = null;
     document.getElementById("pin-hint").innerHTML = "<span>Tap anywhere on the map to select a location</span>";
     closeModal("report-modal-overlay");
+    updateMyProfileStats();
   } catch (error) { 
     toast("Error: " + error.message); 
   }
@@ -694,6 +716,7 @@ function renderReports() {
   });
 
   checkProximityAlerts();
+  updateMyProfileStats();
 }
 
 function openZoneModal(id) {
@@ -778,6 +801,7 @@ function openZoneModal(id) {
       await db.collection("reports").doc(id).update({ thankedBy: thankedByList });
       await addUserNotification(r.reportedBy, `${state.user.displayName || "Someone"} sent you a thank-you message for marking this zone!`);
       toast(`Thank you message sent to ${firstName}!`);
+      updateMyProfileStats();
     } catch (err) { toast("Error sending thanks: " + err.message); }
   };
 
