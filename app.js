@@ -174,26 +174,32 @@ function updateUserUI(user) {
 }
 
 // Profile Picture Modal Handlers
-document.getElementById("change-photo-btn").addEventListener("click", () => {
-  document.getElementById("photo-url-input").value = state.user?.photoURL || "";
-  openModal("photo-modal-overlay");
-});
+const changePhotoBtn = document.getElementById("change-photo-btn");
+if (changePhotoBtn) {
+  changePhotoBtn.addEventListener("click", () => {
+    document.getElementById("photo-url-input").value = state.user?.photoURL || "";
+    openModal("photo-modal-overlay");
+  });
+}
 
-document.getElementById("save-photo-btn").addEventListener("click", async () => {
-  const newUrl = document.getElementById("photo-url-input").value.trim();
-  if (!newUrl) return toast("Please enter a valid image URL");
-  if (!state.user || !fbReady) return toast("Sign in first");
+const savePhotoBtn = document.getElementById("save-photo-btn");
+if (savePhotoBtn) {
+  savePhotoBtn.addEventListener("click", async () => {
+    const newUrl = document.getElementById("photo-url-input").value.trim();
+    if (!newUrl) return toast("Please enter a valid image URL");
+    if (!state.user || !fbReady) return toast("Sign in first");
 
-  try {
-    await db.collection("users").doc(state.user.uid).update({ photoURL: newUrl });
-    state.user.photoURL = newUrl;
-    updateUserUI(state.user);
-    closeModal("photo-modal-overlay");
-    toast("Profile picture updated successfully!");
-  } catch (err) {
-    toast("Error updating profile picture: " + err.message);
-  }
-});
+    try {
+      await db.collection("users").doc(state.user.uid).update({ photoURL: newUrl });
+      state.user.photoURL = newUrl;
+      updateUserUI(state.user);
+      closeModal("photo-modal-overlay");
+      toast("Profile picture updated successfully!");
+    } catch (err) {
+      toast("Error updating profile picture: " + err.message);
+    }
+  });
+}
 
 function renderNotificationsSection() {
   const container = document.getElementById("dedicated-notifications-list");
@@ -296,8 +302,8 @@ if (fbReady) {
   });
 }
 
-// Initialize Leaflet Map
-const map = L.map("map", { maxZoom: 22 }).setView([20.5937, 78.9629], 5);
+// Initialize Leaflet Map safely
+const map = L.map("map", { maxZoom: 22 }).setView([17.6599, 75.9064], 13); // Centered on Solapur as default
 
 L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { 
   maxZoom: 22,
@@ -308,8 +314,16 @@ L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
 const markerLayer = L.layerGroup().addTo(map);
 window.safeHeavenMap = map;
 
-window.addEventListener("resize", () => { if(window.safeHeavenMap) window.safeHeavenMap.invalidateSize(); });
-setTimeout(() => { if(window.safeHeavenMap) window.safeHeavenMap.invalidateSize(); }, 500);
+// Force map to recalculate container size correctly once rendered
+setTimeout(() => {
+  if (window.safeHeavenMap) {
+    window.safeHeavenMap.invalidateSize();
+  }
+}, 300);
+
+window.addEventListener("resize", () => { 
+  if (window.safeHeavenMap) window.safeHeavenMap.invalidateSize(); 
+});
 
 map.on("click", (e) => {
   state.pendingLatLng = e.latlng;
@@ -321,13 +335,12 @@ let userRadiusCircle = null;
 let hasCenteredUser = false;
 const PROXIMITY_RADIUS_METERS = 400; 
 
-// Enhanced & Reliable GPS Setup
+// Robust GPS Setup with Fallbacks
 function setupGPS() {
   const badge = document.getElementById("gps-status-badge");
   
   if (!("geolocation" in navigator)) {
     if (badge) badge.textContent = "GPS not supported";
-    toast("Geolocation is not supported by your browser");
     return;
   }
 
@@ -380,20 +393,17 @@ function setupGPS() {
 
   function errorHandler(err) {
     console.warn("GPS error code " + err.code + ": " + err.message);
-    
     if (err.code === err.TIMEOUT || err.code === err.POSITION_UNAVAILABLE) {
       if (badge) badge.textContent = "Retrying with standard GPS...";
       navigator.geolocation.getCurrentPosition(
         successHandler, 
-        (fallbackErr) => {
+        () => {
           if (badge) badge.textContent = "GPS Permission / Signal Required";
-          toast("Unable to retrieve location. Please check browser permissions.");
         },
         { enableHighAccuracy: false, timeout: 10000, maximumAge: 10000 }
       );
     } else {
       if (badge) badge.textContent = "GPS Permission Denied";
-      toast("Location access denied. Please enable location permissions in your browser.");
     }
   }
 
