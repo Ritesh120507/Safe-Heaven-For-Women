@@ -318,7 +318,7 @@ if (fbReady) {
 }
 
 // Initialize Leaflet Map safely
-const map = L.map("map", { maxZoom: 22 }).setView([17.6599, 75.9064], 13); // Centered on Solapur as default
+const map = L.map("map", { maxZoom: 22 }).setView([17.6599, 75.9064], 13);
 
 L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { 
   maxZoom: 22,
