@@ -125,7 +125,10 @@
       <h2>Rules, Trust Score Changes & Tiers</h2>
       <p style="color:var(--text-hi); margin-bottom:1.5rem;">Learn how your actions increase or decrease your trust score and affect your standing in the community.</p>
 
-      <div style="display:grid; grid-template-columns:1fr 1fr; gap:1.25rem; margin-bottom:2rem;">
+      <!-- Sections placed strictly one below another -->
+      <div style="display:flex; flex-direction:column; gap:1.25rem; margin-bottom:2rem;">
+        
+        <!-- INCREASE SECTION -->
         <div style="background:rgba(77,255,136,0.06); border:1px solid rgba(77,255,136,0.3); border-radius:1rem; padding:1.25rem;">
           <h4 style="color:var(--safe); margin-top:0; margin-bottom:0.5rem;">Actions That INCREASE Trust Score</h4>
           <ul style="margin:0; padding-left:1.2rem; font-size:0.92rem; color:var(--text-hi); line-height:1.6;">
@@ -135,6 +138,7 @@
           </ul>
         </div>
         
+        <!-- DECREASE & BAN SECTION -->
         <div style="background:rgba(255,77,77,0.06); border:1px solid rgba(255,77,77,0.3); border-radius:1rem; padding:1.25rem;">
           <h4 style="color:#ff4d4d; margin-top:0; margin-bottom:0.5rem;">Actions That DECREASE Trust Score & Ban</h4>
           <ul style="margin:0; padding-left:1.2rem; font-size:0.92rem; color:var(--text-hi); line-height:1.6;">
@@ -143,6 +147,7 @@
             <li><b>Malicious False Reporting:</b> Submitting fake hazard pins results in heavy trust deductions.</li>
           </ul>
         </div>
+
       </div>
 
       <h3 style="color:var(--theme-glow); margin-bottom:1rem;">Trust Score & Badge Promotion Chain</h3>
